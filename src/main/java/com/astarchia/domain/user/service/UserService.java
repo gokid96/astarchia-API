@@ -1,23 +1,27 @@
 package com.astarchia.domain.user.service;
 
-
 import com.astarchia.domain.user.dto.request.UserCreateRequestDTO;
+import com.astarchia.domain.user.dto.request.UserLoginRequestDTO;
+import com.astarchia.domain.user.dto.request.UserUpdateRequestDTO;
 import com.astarchia.domain.user.dto.response.UserResponseDTO;
 import com.astarchia.domain.user.entity.Users;
 import com.astarchia.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserService {
 
     private final UserRepository userRepository;
 
+    /*
+    * 생성
+    * */
+    @Transactional
     public UserResponseDTO createUser(UserCreateRequestDTO request) {
-        // UserCreateRequestDTO (email, loginId, password, nickname)
-
-        // DB에 이미 있는지 확인
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 사용중인 이메일입니다.");
         }
@@ -28,7 +32,6 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
         }
 
-        // DTO → Entity 변환 (생성자대신 builder())
         Users user = Users.builder()
                 .email(request.getEmail())
                 .loginId(request.getLoginId())
@@ -36,15 +39,52 @@ public class UserService {
                 .nickname(request.getNickname())
                 .build();
 
-        // 3단계: 비밀번호 암호화
-        // → BCryptPasswordEncoder 사용 나중에
-
-        // DB 저장
         Users savedUser = userRepository.save(user);
-
-        // Entity → DTO 변환해 응답
         return UserResponseDTO.from(savedUser);
     }
+    /*
+    * 로그인
+    * */
+    public UserResponseDTO login(UserLoginRequestDTO request) {
+        Users user = userRepository.findByLoginId(request.getLoginId())
+                .orElseThrow(() -> new IllegalArgumentException("아이디가 존재하지 않습니다."));
 
+        if (!user.getPassword().equals(request.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+        return UserResponseDTO.from(user);
+    }
+    /*
+    * 조회
+    * */
+    public UserResponseDTO getUserInfo(Long userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        return UserResponseDTO.from(user);
+    }
+    /*
+    * 수정
+    * */
+    @Transactional
+    public UserResponseDTO updateUser(Long userId, UserUpdateRequestDTO request) {
+        // user의 스냅샷을 1차 캐시에 저장
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
+        // 엔티티 값 변경
+        user.updatePassword(request.getPassword());
+        user.updateNickname(request.getNickname());
+
+        return UserResponseDTO.from(user);
+        //메서드 종료 → 트랜잭션 커밋 시점에 dirty checking 변경 감지 & UPDATE 쿼리 실행
+    }
+    /*
+    * 삭제
+    * */
+    @Transactional
+    public void deleteUser(Long userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        userRepository.delete(user);
+    }
 }

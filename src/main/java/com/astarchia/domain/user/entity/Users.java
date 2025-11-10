@@ -39,4 +39,13 @@ public class Users {
     @Column(name = "updated_at", nullable = false)
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+
+    public void updatePassword(String password) {
+        this.password = password;
+    }
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
 }
