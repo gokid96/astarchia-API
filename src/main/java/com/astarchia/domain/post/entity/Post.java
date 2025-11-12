@@ -75,4 +75,28 @@ public class Post {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "series_id")
     private Series series;
+
+    public void updateContent(String content) {
+        this.content = content;
+    }
+
+    public void updateSummary(String summary) {
+        this.summary = summary;
+    }
+
+    public void updateThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public void updateStatus(PostStatus status) {
+        this.status = status;
+        // 발행 시점
+        if(status == PostStatus.PUBLISHED && this.publishedAt == null) {
+            this.publishedAt = LocalDateTime.now();
+        }
+    }
+
+    public void updateVisibility(Visibility visibility) {
+        this.visibility = visibility;
+    }
 }

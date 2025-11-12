@@ -18,31 +18,30 @@ public class UserController {
     private final UserService userService;
 
     // 회원가입
-    @PostMapping("/register")
+    @PostMapping
     public ResponseEntity<UserResponseDTO> register(@RequestBody UserCreateRequestDTO request) {
-        UserResponseDTO response = userService.createUser(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
     }
 
-    // 로그인
+    // 로그인 (AuthController 만들어서 이동 시키기 )
     @PostMapping("/login")
     public ResponseEntity<UserResponseDTO> login(@RequestBody UserLoginRequestDTO request) {
-        UserResponseDTO response = userService.login(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(userService.login(request));
     }
-    // 조회
+
+    // 조회 @AuthenticationPrincipal 로 인증정보 넘기는거로 수정하기
     @GetMapping("/{userId}")
     public ResponseEntity<UserResponseDTO> getUserInfo(@PathVariable Long userId) {
-        UserResponseDTO response = userService.getUserInfo(userId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(userService.getUserInfo(userId));
     }
+
     // 수정
     @PatchMapping("/{userId}")
-    public ResponseEntity<UserResponseDTO> updateUser(@PathVariable Long userId, @RequestBody UserUpdateRequestDTO request){
-        UserResponseDTO response = userService.updateUser(userId, request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<UserResponseDTO> updateUser(@PathVariable Long userId, @RequestBody UserUpdateRequestDTO request) {
+        return ResponseEntity.ok(userService.updateUser(userId, request));
     }
-    // 탈퇴
+
+    // 탈퇴 @AuthenticationPrincipal 로 인증정보 넘기는거로 수정하기
     @DeleteMapping("/{userId}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
         userService.deleteUser(userId);

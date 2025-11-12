@@ -7,6 +7,7 @@ import com.astarchia.domain.user.dto.response.UserResponseDTO;
 import com.astarchia.domain.user.entity.Users;
 import com.astarchia.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
-
+    private final PasswordEncoder passwordEncoder;
     /*
     * 생성
     * */
@@ -35,7 +36,7 @@ public class UserService {
         Users user = Users.builder()
                 .email(request.getEmail())
                 .loginId(request.getLoginId())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .nickname(request.getNickname())
                 .build();
 
@@ -49,9 +50,10 @@ public class UserService {
         Users user = userRepository.findByLoginId(request.getLoginId())
                 .orElseThrow(() -> new IllegalArgumentException("아이디가 존재하지 않습니다."));
 
-        if (!user.getPassword().equals(request.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
+
         return UserResponseDTO.from(user);
     }
     /*
@@ -72,7 +74,7 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         // 엔티티 값 변경
-        user.updatePassword(request.getPassword());
+        user.updatePassword(passwordEncoder.encode(request.getPassword()));
         user.updateNickname(request.getNickname());
 
         return UserResponseDTO.from(user);

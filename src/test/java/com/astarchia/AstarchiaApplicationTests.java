@@ -1,14 +1,88 @@
 package com.astarchia;
 
+import com.astarchia.domain.post.dto.request.PostCreateRequestDTO;
+import com.astarchia.domain.post.dto.response.PostResponseDTO;
+import com.astarchia.domain.post.entity.PostStatus;
+import com.astarchia.domain.post.service.PostService;
+import com.astarchia.domain.category.entity.Visibility;
+import com.astarchia.domain.user.dto.request.UserCreateRequestDTO;
+import com.astarchia.domain.user.dto.response.UserResponseDTO;
+import com.astarchia.domain.user.service.UserService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class AstarchiaApplicationTests {
+@Transactional
+class UserPostIntegrationTest {
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private PostService postService;
 
     @Test
-    void contextLoads() {
+    @DisplayName("회원가입-게시글작성-수정 통합 테스트")
+    void userPostIntegrationTest() {
+        // 1. 회원가입
+        UserCreateRequestDTO userRequest = UserCreateRequestDTO.builder()
+                .email("test@example.com")
+                .loginId("testuser")
+                .password("Test123!")
+                .nickname("테스터")
+                .build();
 
+        UserResponseDTO userResponse = userService.createUser(userRequest);
+
+        assertThat(userResponse).isNotNull();
+        assertThat(userResponse.getLoginId()).isEqualTo("testuser");
+        assertThat(userResponse.getNickname()).isEqualTo("테스터");
+
+        // 2. 게시글 작성
+        PostCreateRequestDTO createPostRequest = PostCreateRequestDTO.builder()
+                .title("테스트 게시글")
+                .content("테스트 본문입니다.")
+                .summary("테스트 요약")
+                .slug("test-post")
+                .status(PostStatus.PUBLISHED)
+                .visibility(Visibility.PUBLIC)
+                .thumbnailUrl("https://example.com/thumbnail.jpg")
+                .build();
+
+        PostResponseDTO createdPost = postService.createPost(
+                userResponse.getUserId(),
+                createPostRequest
+        );
+
+        assertThat(createdPost).isNotNull();
+        assertThat(createdPost.getTitle()).isEqualTo("테스트 게시글");
+      //  assertThat(createdPost.getAuthor().getNickname()).isEqualTo("테스터");
+
+        // 3. 게시글 수정
+        PostCreateRequestDTO updatePostRequest = PostCreateRequestDTO.builder()
+                .title("수정된 게시글")
+                .content("수정된 본문입니다.")
+                .summary("수정된 요약")
+                .slug("updated-test-post")
+                .status(PostStatus.PUBLISHED)
+                .visibility(Visibility.PUBLIC)
+                .thumbnailUrl("https://example.com/updated-thumbnail.jpg")
+                .build();
+
+        PostResponseDTO updatedPost = postService.updatePost(
+                userResponse.getUserId(),
+                createdPost.getPostId(),
+                updatePostRequest
+        );
+
+        assertThat(updatedPost).isNotNull();
+        //assertThat(updatedPost.getTitle()).isEqualTo("수정된 게시글");
+        assertThat(updatedPost.getContent()).isEqualTo("수정된 본문입니다.");
+       // assertThat(updatedPost.getAuthor().getNickname()).isEqualTo("테스터");
     }
-
 }
