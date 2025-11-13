@@ -1,0 +1,43 @@
+package com.astarchia.domain.folder.dto.response;
+
+import com.astarchia.domain.folder.entity.Folder;
+import lombok.Builder;
+import lombok.Getter;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Getter
+@Builder
+public class FolderResponseDTO {
+
+    private Long id;
+    private String name;
+    private Long parentId;
+    private List<FolderResponseDTO> children;
+
+    /*하위 폴더 포함*/
+    public static FolderResponseDTO from(Folder folder) {
+        return FolderResponseDTO.builder()
+                .id(folder.getFolderId())
+                .name(folder.getName())
+                .parentId(folder.getParent() != null ? folder.getParent().getFolderId() : null)
+                .children(folder.getChildren().stream()
+                        .map(FolderResponseDTO::from)
+                        .collect(Collectors.toList()))
+                .build();
+    }
+    /*
+    * 하위 폴더 제외
+    * */
+    public static FolderResponseDTO fromSimple(Folder folder) {
+        return FolderResponseDTO.builder()
+                .id(folder.getFolderId())
+                .name(folder.getName())
+                .parentId(folder.getParent() != null ? folder.getParent().getFolderId() : null)
+                .build();
+    }
+
+
+
+}

@@ -12,7 +12,7 @@ import org.springframework.data.domain.Page;
 import java.util.List;
 import java.util.Optional;
 
-public interface PostRepository extends JpaRepository<Post, Long> {
+public interface PostRepository extends JpaRepository<Post, Long>{
     Optional<Post> findBySlug(String slug);
     boolean existsBySlug(String slug);
 
