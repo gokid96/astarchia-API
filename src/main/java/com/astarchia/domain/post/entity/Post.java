@@ -2,6 +2,7 @@ package com.astarchia.domain.post.entity;
 
 import com.astarchia.domain.category.entity.Category;
 import com.astarchia.domain.category.entity.Visibility;
+import com.astarchia.domain.folder.entity.Folder;
 import com.astarchia.domain.series.entity.Series;
 import com.astarchia.domain.user.entity.Users;
 import jakarta.persistence.*;
@@ -75,6 +76,11 @@ public class Post {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "series_id")
     private Series series;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "folder_id")
+    private Folder folder;  // 이 게시글이 속한 폴더
 
     public void updateContent(String content) {
         this.content = content;

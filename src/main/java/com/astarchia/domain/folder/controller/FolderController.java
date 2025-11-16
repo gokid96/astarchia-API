@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/folders")
@@ -18,22 +20,42 @@ public class FolderController {
     private final FolderService folderService;
 
     @PostMapping
-    public ResponseEntity<FolderResponseDTO> createFolder(@RequestParam Long userId, @RequestBody FolderCreateRequestDTO folder) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(folderService.createFolder(userId, folder));
+    public ResponseEntity<FolderResponseDTO> createFolder(@RequestParam Long userId, @RequestBody FolderCreateRequestDTO request) {
+        FolderResponseDTO folder = folderService.createFolder(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(folder);
     }
 
-    @PatchMapping
-    public ResponseEntity<FolderResponseDTO> updateFolder(@RequestParam Long userId, @RequestParam Long folderId, @RequestBody FolderUpdateRequestDTO folder) {
-        return ResponseEntity.ok(folderService.updateFolder(userId, folderId, folder));
+    @PatchMapping("/{folderId}")
+    public ResponseEntity<FolderResponseDTO> updateFolder(
+            @PathVariable Long folderId,
+            @RequestParam Long userId,
+            @RequestBody FolderUpdateRequestDTO request) {
+        FolderResponseDTO folder = folderService.updateFolder(userId, folderId, request);
+        return ResponseEntity.ok(folder);
     }
 
-    @DeleteMapping
-    public void deleteFolder(@RequestParam Long userId, @RequestParam Long folderId) {
+    @DeleteMapping("/{folderId}")
+    public ResponseEntity<Void> deleteFolder(
+            @PathVariable Long folderId,
+            @RequestParam Long userId) {
         folderService.deleteFolder(userId, folderId);
+        return ResponseEntity.noContent().build();
     }
+
 
     @GetMapping
-    public ResponseEntity<Iterable<FolderResponseDTO>> getFolderList(@RequestParam Long userId) {
-        return ResponseEntity.ok(folderService.getFolderList(userId));
+    public ResponseEntity<List<FolderResponseDTO>> getRootFolders(
+            @RequestParam Long userId) {
+        List<FolderResponseDTO> folders = folderService.getRootFolders(userId);
+        return ResponseEntity.ok(folders);
+    }
+
+
+    @GetMapping("/{folderId}/children")
+    public ResponseEntity<List<FolderResponseDTO>> getChildFolders(
+            @PathVariable Long folderId,
+            @RequestParam Long userId) {
+        List<FolderResponseDTO> folders = folderService.getChildFolders(userId, folderId);
+        return ResponseEntity.ok(folders);
     }
 }
