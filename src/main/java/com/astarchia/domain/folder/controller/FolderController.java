@@ -3,8 +3,13 @@ package com.astarchia.domain.folder.controller;
 
 import com.astarchia.domain.folder.dto.request.FolderCreateRequestDTO;
 import com.astarchia.domain.folder.dto.request.FolderUpdateRequestDTO;
+import com.astarchia.domain.folder.dto.request.MoveFolderRequestDTO;
 import com.astarchia.domain.folder.dto.response.FolderResponseDTO;
+import com.astarchia.domain.folder.entity.Folder;
 import com.astarchia.domain.folder.service.FolderService;
+import com.astarchia.domain.post.dto.request.MovePostRequestDTO;
+import com.astarchia.domain.post.dto.response.PostResponseDTO;
+import com.astarchia.domain.post.entity.Post;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -58,4 +63,18 @@ public class FolderController {
         List<FolderResponseDTO> folders = folderService.getChildFolders(userId, folderId);
         return ResponseEntity.ok(folders);
     }
+
+    // /api/v1/folders
+    @PatchMapping("/{folderId}/move")
+    public ResponseEntity<FolderResponseDTO> moveToFolder(
+            @PathVariable Long folderId,
+            @RequestParam Long userId,
+            @RequestBody MoveFolderRequestDTO request) {
+        Folder movedFolder = folderService.moveToFolder(userId, folderId, request.getParentId());
+        return ResponseEntity.ok(FolderResponseDTO.from(movedFolder));
+    }
+
+
+
+
 }

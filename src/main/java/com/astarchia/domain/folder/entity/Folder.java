@@ -68,27 +68,21 @@ public class Folder {
     public void updateName(String name) {
         this.name = name;
     }
-
-
+    
     /*
      * 상위 폴더 변경 (폴더 이동)
      * */
-    public void moveToFolder(Folder newParent) {
+    public void moveToParent(Folder newParent) {  // 이름 변경
+        // 기존 부모에서 제거
         if (this.parent != null) {
             this.parent.children.remove(this);
         }
+        // 새 부모로 이동
         this.parent = newParent;
+        // 새 부모의 자식 목록에 추가
         if (newParent != null) {
             newParent.getChildren().add(this);
         }
-    }
-
-    /*
-     * 하위 폴더 추가
-     * */
-    public void addChild(Folder child) {
-        this.children.add(child);
-        child.parent = this;
     }
 
     /*
