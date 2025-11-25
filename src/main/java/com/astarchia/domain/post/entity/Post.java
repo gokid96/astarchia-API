@@ -51,7 +51,7 @@ public class Post {
     @Builder.Default
     private Integer viewCount = 0;
     
-    @Column(nullable = false, unique = true, length = 200)
+    @Column(length = 200)
     private String slug;
     
     @Column(name = "published_at")
@@ -82,6 +82,8 @@ public class Post {
     @JoinColumn(name = "folder_id")
     private Folder folder;  // 이 게시글이 속한 폴더
 
+
+
     public void updateContent(String content) {
         this.content = content;
     }
@@ -104,5 +106,9 @@ public class Post {
 
     public void updateVisibility(Visibility visibility) {
         this.visibility = visibility;
+    }
+
+    public void updateFolder(Folder folder) {
+        this.folder = folder;
     }
 }

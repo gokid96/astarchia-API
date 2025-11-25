@@ -19,6 +19,7 @@ public class PostCreateRequestDTO {
     private String summary;
     private String thumbnailUrl;
     private String slug;
+    private Long folderId;
 
     @Builder.Default
     private PostStatus status = PostStatus.DRAFT; //기본 임시저장

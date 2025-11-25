@@ -2,6 +2,8 @@ package com.astarchia.domain.post.service;
 
 
 import com.astarchia.domain.category.entity.Visibility;
+import com.astarchia.domain.folder.entity.Folder;
+import com.astarchia.domain.folder.repository.FolderRepository;
 import com.astarchia.domain.post.dto.request.PostCreateRequestDTO;
 import com.astarchia.domain.post.dto.response.PostResponseDTO;
 import com.astarchia.domain.post.entity.Post;
@@ -10,13 +12,13 @@ import com.astarchia.domain.post.repository.PostRepository;
 import com.astarchia.domain.user.entity.Users;
 import com.astarchia.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 
-import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -24,21 +26,23 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final FolderRepository folderRepository;
 
     /*
      * 생성
      */
     @Transactional
     public PostResponseDTO createPost(Long userId, PostCreateRequestDTO request) {
-        // 1. 작성자 찾기
         Users author = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        // 2. slug 중복 체크 (선택)
-        if (postRepository.existsBySlug(request.getSlug())) {
-            throw new IllegalArgumentException("이미 사용 중인 URL입니다.");
+
+        // 폴더 조회 추가
+        Folder folder = null;
+        if (request.getFolderId() != null) {
+            folder = folderRepository.findById(request.getFolderId())
+                    .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
         }
 
-        // 2. Post 엔티티 생성
         Post post = Post.builder()
                 .author(author)
                 .title(request.getTitle())
@@ -46,14 +50,45 @@ public class PostService {
                 .summary(request.getSummary())
                 .thumbnailUrl(request.getThumbnailUrl())
                 .slug(request.getSlug())
+                .folder(folder) // ← 추가
                 .build();
-        // 3. 저장
+
         Post savedPost = postRepository.save(post);
-        // 4. DTO 변환
         return PostResponseDTO.from(savedPost);
     }
 
+    /**
+     * 게시글을 다른 폴더로 이동
+     */
+    @Transactional
+    public Post moveToFolder(Long userId, Long postId, Long folderId) {
+        log.info("=== moveToFolder 시작 ===");
+        log.info("userId: {}, postId: {}, folderId: {}", userId, postId, folderId);
 
+        Post post = postRepository.findByAuthor_UserIdAndPostId(userId, postId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+
+        log.info("Post 조회 완료: {}", post.getPostId());
+
+        if (folderId != null) {
+            Folder folder = folderRepository.findById(folderId)
+                    .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
+
+            if (!folder.getUser().getUserId().equals(userId)) {
+                throw new IllegalArgumentException("해당 폴더에 접근할 수 없습니다.");
+            }
+
+            post.updateFolder(folder);
+            log.info("폴더로 이동 완료: {}", folderId);
+        } else {
+            post.updateFolder(null);
+            log.info("루트로 이동 완료");
+        }
+
+        log.info("=== moveToFolder 종료 ===");
+
+        return post;
+    }
     /*
      * 발행 (임시저장 → 발행)
      */
@@ -116,6 +151,7 @@ public class PostService {
 
         //엔티티 값 변경
         post.updateContent(request.getContent());
+        log.info("getContent: {},", request.getContent());
         post.updateSummary(request.getSummary());
         post.updateThumbnailUrl(request.getThumbnailUrl());
         post.updateStatus(request.getStatus());

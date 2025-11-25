@@ -1,8 +1,10 @@
 package com.astarchia.domain.post.controller;
 
 
+import com.astarchia.domain.post.dto.request.MovePostRequestDTO;
 import com.astarchia.domain.post.dto.request.PostCreateRequestDTO;
 import com.astarchia.domain.post.dto.response.PostResponseDTO;
+import com.astarchia.domain.post.entity.Post;
 import com.astarchia.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -58,6 +60,14 @@ public class PostController {
     public ResponseEntity<Void> deletePost(@RequestParam Long userId, @PathVariable Long postId) {
         postService.deletePost(userId, postId);
         return ResponseEntity.noContent().build();
+    }
+    @PatchMapping("/{postId}/move")
+    public ResponseEntity<PostResponseDTO> moveToFolder(
+            @PathVariable Long postId,
+            @RequestParam Long userId,
+            @RequestBody MovePostRequestDTO request) {
+        Post updatedPost = postService.moveToFolder(userId, postId, request.getFolderId());
+        return ResponseEntity.ok(PostResponseDTO.from(updatedPost));
     }
 
 }

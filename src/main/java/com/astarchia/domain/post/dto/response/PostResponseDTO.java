@@ -29,6 +29,9 @@ public class PostResponseDTO {
     private LocalDateTime publishedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long folderId;
+    private String folderName;
+
 
     // 작성자 정보
     private Long authorId;
@@ -60,6 +63,8 @@ public class PostResponseDTO {
                 .updatedAt(post.getUpdatedAt())
                 .authorId(post.getAuthor().getUserId())
                 .authNickname(post.getAuthor().getNickname())
+                .folderId(post.getFolder() != null ? post.getFolder().getFolderId() : null) // ← 추가
+                .folderName(post.getFolder() != null ? post.getFolder().getName() : null) // ← 선택
                 .categoryId(post.getCategory() != null ? post.getCategory().getCategoryId() : null)
                 .categoryName(post.getCategory() != null ? post.getCategory().getName() : null)
                 .seriesId(post.getSeries() != null ? post.getSeries().getSeriesId() : null)
