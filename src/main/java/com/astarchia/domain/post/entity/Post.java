@@ -28,10 +28,10 @@ public class Post {
     @Column(nullable = false, length = 200)
     private String title;
     
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
     
-    @Column(length = 300)
+    @Column(length = 500)
     private String summary;
     
     @Column(name = "thumbnail_url", length = 500)
@@ -83,7 +83,9 @@ public class Post {
     private Folder folder;  // 이 게시글이 속한 폴더
 
 
-
+    public void updateTitle(String Title) {
+        this.title = Title;
+    }
     public void updateContent(String content) {
         this.content = content;
     }

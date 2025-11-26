@@ -142,7 +142,7 @@ public class PostService {
         return PostResponseDTO.from(post);
     }
     /*
-     * 수정 (내 글만)
+     * 수정
      */
     @Transactional
     public PostResponseDTO updatePost(Long userId, Long postId, PostCreateRequestDTO request) {
@@ -150,12 +150,13 @@ public class PostService {
                 .orElseThrow(()->new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
         //엔티티 값 변경
+        post.updateTitle(request.getTitle());
         post.updateContent(request.getContent());
         log.info("getContent: {},", request.getContent());
-        post.updateSummary(request.getSummary());
-        post.updateThumbnailUrl(request.getThumbnailUrl());
-        post.updateStatus(request.getStatus());
-        post.updateVisibility(request.getVisibility());
+//        post.updateSummary(request.getSummary());
+//        post.updateThumbnailUrl(request.getThumbnailUrl());
+//        post.updateStatus(request.getStatus());
+//        post.updateVisibility(request.getVisibility());
 
         return PostResponseDTO.from(post);
         //트랜잭션 커밋 시점에 dirty checking 변경감지
