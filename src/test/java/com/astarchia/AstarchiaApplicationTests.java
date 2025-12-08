@@ -2,9 +2,7 @@ package com.astarchia;
 
 import com.astarchia.domain.post.dto.request.PostCreateRequestDTO;
 import com.astarchia.domain.post.dto.response.PostResponseDTO;
-import com.astarchia.domain.post.entity.PostStatus;
 import com.astarchia.domain.post.service.PostService;
-import com.astarchia.domain.category.entity.Visibility;
 import com.astarchia.domain.user.dto.request.UserCreateRequestDTO;
 import com.astarchia.domain.user.dto.response.UserResponseDTO;
 import com.astarchia.domain.user.service.UserService;
@@ -48,10 +46,6 @@ class UserPostIntegrationTest {
                 .title("테스트 게시글")
                 .content("테스트 본문입니다.")
                 .summary("테스트 요약")
-                .slug("test-post")
-                .status(PostStatus.PUBLISHED)
-                .visibility(Visibility.PUBLIC)
-                .thumbnailUrl("https://example.com/thumbnail.jpg")
                 .build();
 
         PostResponseDTO createdPost = postService.createPost(
@@ -68,10 +62,6 @@ class UserPostIntegrationTest {
                 .title("수정된 게시글")
                 .content("수정된 본문입니다.")
                 .summary("수정된 요약")
-                .slug("updated-test-post")
-                .status(PostStatus.PUBLISHED)
-                .visibility(Visibility.PUBLIC)
-                .thumbnailUrl("https://example.com/updated-thumbnail.jpg")
                 .build();
 
         PostResponseDTO updatedPost = postService.updatePost(

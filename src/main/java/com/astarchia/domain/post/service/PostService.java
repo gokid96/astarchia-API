@@ -1,7 +1,6 @@
 package com.astarchia.domain.post.service;
 
 
-import com.astarchia.domain.category.entity.Visibility;
 import com.astarchia.domain.folder.entity.Folder;
 import com.astarchia.domain.folder.repository.FolderRepository;
 import com.astarchia.domain.post.dto.request.PostCreateRequestDTO;
@@ -48,8 +47,6 @@ public class PostService {
                 .title(request.getTitle())
                 .content(request.getContent())
                 .summary(request.getSummary())
-                .thumbnailUrl(request.getThumbnailUrl())
-                .slug(request.getSlug())
                 .folder(folder) // ← 추가
                 .build();
 
@@ -104,35 +101,9 @@ public class PostService {
     public Page<PostResponseDTO> getMyPosts(Long userId ,Pageable pageable) {
         //내가 쓴글 전체 조회
         Page<Post> posts = postRepository.findByAuthor_UserIdOrderByCreatedAtDesc(userId,pageable);
-
-        return posts.map(PostResponseDTO::from);
-
-    }
-
-    /*
-     * 조회 - 공개된 글 목록 (방문자용)
-     */
-    public Page<PostResponseDTO> getPublicPosts(Long userId, Pageable pageable) {
-        //공개된 글 조회 // (PostStatus status, Visibility visibility)
-        Page<Post> posts = postRepository.findByAuthor_UserIdAndStatusAndVisibilityOrderByPublishedAtDesc
-                (userId, PostStatus.PUBLISHED, Visibility.PUBLIC,pageable);
         return posts.map(PostResponseDTO::from);
     }
 
-    /*
-     * 조회 - 단건 (slug로)
-     */
-    public PostResponseDTO getPostBySlug(String slug) {
-        Post post = postRepository.findBySlug(slug)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        //공개여부 확인
-        if (post.getVisibility() != Visibility.PUBLIC ||
-                post.getStatus() != PostStatus.PUBLISHED) {
-            throw new IllegalArgumentException("게시글을 찾을 수 없습니다.");
-        }
-
-        return PostResponseDTO.from(post);
-    }
     /*
      * 조회 - 단건 (ID로)
      */
@@ -153,11 +124,6 @@ public class PostService {
         post.updateTitle(request.getTitle());
         post.updateContent(request.getContent());
         log.info("getContent: {},", request.getContent());
-//        post.updateSummary(request.getSummary());
-//        post.updateThumbnailUrl(request.getThumbnailUrl());
-//        post.updateStatus(request.getStatus());
-//        post.updateVisibility(request.getVisibility());
-
         return PostResponseDTO.from(post);
         //트랜잭션 커밋 시점에 dirty checking 변경감지
     }

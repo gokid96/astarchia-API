@@ -1,9 +1,8 @@
 spring:
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/astarchia?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: root
-    password: your_password
+    url: jdbc:mysql://localhost:3306/astarchia?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
@@ -12,6 +11,13 @@ spring:
       hibernate:
         format_sql: false
         dialect: org.hibernate.dialect.MySQLDialect
+
+aws:
+  ses:
+    access-key: ${AWS_ACCESS_KEY}
+    secret-key: ${AWS_SECRET_KEY}
+    region: ap-northeast-2
+    from-email: noreply@astarchia.com
 
 logging:
   level:

@@ -1,6 +1,7 @@
 package com.astarchia.domain.post.controller;
 
-
+import com.astarchia.global.security.CustomUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.astarchia.domain.post.dto.request.MovePostRequestDTO;
 import com.astarchia.domain.post.dto.request.PostCreateRequestDTO;
 import com.astarchia.domain.post.dto.response.PostResponseDTO;
@@ -19,22 +20,16 @@ import org.springframework.web.bind.annotation.*;
 public class PostController {
     private final PostService postService;
 
-    //생성 // Long userId 받는거  시큐리티 설정 후 @AuthenticationPrincipal 로 받기
+    //생성 // Long userDetails.getUserId() 받는거  시큐리티 설정 후 @AuthenticationPrincipal 로 받기
     @PostMapping
-    public ResponseEntity<PostResponseDTO> createPost(@RequestParam Long userId, @RequestBody PostCreateRequestDTO request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(postService.createPost(userId, request));
+    public ResponseEntity<PostResponseDTO> createPost(@AuthenticationPrincipal CustomUserDetails userDetails, @RequestBody PostCreateRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(postService.createPost(userDetails.getUserId(), request));
     }
 
     // 내글 목록
     @GetMapping("/my")
-    public ResponseEntity<Page<PostResponseDTO>> getMyPosts(@RequestParam Long userId, Pageable pageable) {
-        return ResponseEntity.ok(postService.getMyPosts(userId, pageable));
-    }
-
-    //공개 글 목록
-    @GetMapping("/public")
-    public ResponseEntity<Page<PostResponseDTO>> getPublicPosts(@RequestParam Long userId, Pageable pageable) {
-        return ResponseEntity.ok(postService.getPublicPosts(userId, pageable));
+    public ResponseEntity<Page<PostResponseDTO>> getMyPosts(@AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
+        return ResponseEntity.ok(postService.getMyPosts(userDetails.getUserId(), pageable));
     }
 
     //ID로 단건 조회 (관리용)
@@ -43,30 +38,24 @@ public class PostController {
         return ResponseEntity.ok(postService.getPostById(postId));
     }
 
-    //slug로 단건 조회 (공개용, SEO)
-    @GetMapping("/{slug}")
-    public ResponseEntity<PostResponseDTO> getPostBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(postService.getPostBySlug(slug));
-    }
-
     //수정
     @PatchMapping("/{postId}")
-    public ResponseEntity<PostResponseDTO> updatePost(@RequestParam Long userId, @PathVariable Long postId, @RequestBody PostCreateRequestDTO request) {
-        return ResponseEntity.ok(postService.updatePost(userId, postId, request));
+    public ResponseEntity<PostResponseDTO> updatePost(@AuthenticationPrincipal CustomUserDetails userDetails, @PathVariable Long postId, @RequestBody PostCreateRequestDTO request) {
+        return ResponseEntity.ok(postService.updatePost(userDetails.getUserId(), postId, request));
     }
 
     //삭제
     @DeleteMapping("/{postId}")
-    public ResponseEntity<Void> deletePost(@RequestParam Long userId, @PathVariable Long postId) {
-        postService.deletePost(userId, postId);
+    public ResponseEntity<Void> deletePost(@AuthenticationPrincipal CustomUserDetails userDetails, @PathVariable Long postId) {
+        postService.deletePost(userDetails.getUserId(), postId);
         return ResponseEntity.noContent().build();
     }
     @PatchMapping("/{postId}/move")
     public ResponseEntity<PostResponseDTO> moveToFolder(
             @PathVariable Long postId,
-            @RequestParam Long userId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody MovePostRequestDTO request) {
-        Post updatedPost = postService.moveToFolder(userId, postId, request.getFolderId());
+        Post updatedPost = postService.moveToFolder(userDetails.getUserId(), postId, request.getFolderId());
         return ResponseEntity.ok(PostResponseDTO.from(updatedPost));
     }
 

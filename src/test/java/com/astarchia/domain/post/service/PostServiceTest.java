@@ -40,7 +40,6 @@ public class PostServiceTest {
         PostCreateRequestDTO request = PostCreateRequestDTO.builder()
                 .title("테스트 게시물")
                 .content("테스트 내용")
-                .slug("test-post")
                 .build();
 
         Post savedPost = Post.builder()
@@ -51,7 +50,6 @@ public class PostServiceTest {
 
         // when
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(postRepository.existsBySlug("test-post")).thenReturn(false);
         when(postRepository.save(any(Post.class))).thenReturn(savedPost);
 
         // then

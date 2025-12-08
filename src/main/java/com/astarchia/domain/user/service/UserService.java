@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -18,9 +19,10 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    /*
-    * 생성
-    * */
+
+    /**
+     * 생성
+     */
     @Transactional
     public UserResponseDTO createUser(UserCreateRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -43,9 +45,10 @@ public class UserService {
         Users savedUser = userRepository.save(user);
         return UserResponseDTO.from(savedUser);
     }
-    /*
-    * 로그인
-    * */
+
+    /**
+     * 로그인
+     */
     public UserResponseDTO login(UserLoginRequestDTO request) {
         Users user = userRepository.findByLoginId(request.getLoginId())
                 .orElseThrow(() -> new IllegalArgumentException("아이디가 존재하지 않습니다."));
@@ -56,33 +59,55 @@ public class UserService {
 
         return UserResponseDTO.from(user);
     }
-    /*
-    * 조회
-    * */
+
+    /**
+     * 조회
+     */
     public UserResponseDTO getUserInfo(Long userId) {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         return UserResponseDTO.from(user);
     }
-    /*
-    * 수정
-    * */
+
+    /**
+     * 수정
+     */
     @Transactional
     public UserResponseDTO updateUser(Long userId, UserUpdateRequestDTO request) {
-        // user의 스냅샷을 1차 캐시에 저장
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        // 엔티티 값 변경
-        user.updatePassword(passwordEncoder.encode(request.getPassword()));
-        user.updateNickname(request.getNickname());
+        // 닉네임 수정 (값이 있을 때만)
+        if (StringUtils.hasText(request.getNickname())) {
+            // 다른 사용자가 사용 중인 닉네임인지 확인
+            if (!user.getNickname().equals(request.getNickname()) 
+                    && userRepository.existsByNickname(request.getNickname())) {
+                throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+            }
+            user.updateNickname(request.getNickname());
+        }
+
+        // 비밀번호 수정 (새 비밀번호가 있을 때만)
+        if (StringUtils.hasText(request.getNewPassword())) {
+            // 현재 비밀번호 확인 필수
+            if (!StringUtils.hasText(request.getCurrentPassword())) {
+                throw new IllegalArgumentException("현재 비밀번호를 입력해주세요.");
+            }
+            
+            // 현재 비밀번호 검증
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+            }
+            
+            user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        }
 
         return UserResponseDTO.from(user);
-        //메서드 종료 → 트랜잭션 커밋 시점에 dirty checking 변경 감지 & UPDATE 쿼리 실행
     }
-    /*
-    * 삭제
-    * */
+
+    /**
+     * 삭제
+     */
     @Transactional
     public void deleteUser(Long userId) {
         Users user = userRepository.findById(userId)
