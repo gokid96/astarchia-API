@@ -1,53 +1,76 @@
 package com.astarchia.domain.post.service;
 
-
 import com.astarchia.domain.folder.entity.Folder;
 import com.astarchia.domain.folder.repository.FolderRepository;
 import com.astarchia.domain.post.dto.request.PostCreateRequestDTO;
+import com.astarchia.domain.post.dto.request.PostUpdateRequestDTO;
 import com.astarchia.domain.post.dto.response.PostResponseDTO;
 import com.astarchia.domain.post.entity.Post;
-import com.astarchia.domain.post.entity.PostStatus;
 import com.astarchia.domain.post.repository.PostRepository;
 import com.astarchia.domain.user.entity.Users;
 import com.astarchia.domain.user.repository.UserRepository;
+import com.astarchia.domain.workspace.entity.Workspace;
+import com.astarchia.domain.workspace.entity.WorkspaceMember;
+import com.astarchia.domain.workspace.entity.WorkspaceRole;
+import com.astarchia.domain.workspace.repository.WorkspaceMemberRepository;
+import com.astarchia.domain.workspace.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Page;
 
-@Slf4j
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PostService {
 
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
     private final FolderRepository folderRepository;
+    private final UserRepository userRepository;
+    private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
 
-    /*
-     * 생성
-     */
-    @Transactional
-    public PostResponseDTO createPost(Long userId, PostCreateRequestDTO request) {
-        Users author = userRepository.findById(userId)
+    private WorkspaceMember getMemberOrThrow(Long userId, Long workspaceId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("워크스페이스를 찾을 수 없습니다."));
+        Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        // 폴더 조회 추가
+        return workspaceMemberRepository.findByWorkspaceAndUser(workspace, user)
+                .orElseThrow(() -> new IllegalArgumentException("워크스페이스 접근 권한이 없습니다."));
+    }
+
+    private void checkWritePermission(WorkspaceMember member) {
+        if (member.getRole() == WorkspaceRole.VIEWER) {
+            throw new IllegalArgumentException("쓰기 권한이 없습니다.");
+        }
+    }
+
+    /**
+     * 게시글 생성
+     */
+    @Transactional
+    public PostResponseDTO createPost(Long userId, Long workspaceId, PostCreateRequestDTO request) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
+
+        Users user = member.getUser();
+        Workspace workspace = member.getWorkspace();
+
+        // 폴더 조회 (있으면)
         Folder folder = null;
         if (request.getFolderId() != null) {
-            folder = folderRepository.findById(request.getFolderId())
+            folder = folderRepository.findByFolderIdAndWorkspaceWorkspaceId(request.getFolderId(), workspaceId)
                     .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
         }
 
         Post post = Post.builder()
-                .author(author)
                 .title(request.getTitle())
                 .content(request.getContent())
-                .summary(request.getSummary())
-                .folder(folder) // ← 추가
+                .author(user)
+                .workspace(workspace)
+                .folder(folder)
                 .build();
 
         Post savedPost = postRepository.save(post);
@@ -55,87 +78,88 @@ public class PostService {
     }
 
     /**
-     * 게시글을 다른 폴더로 이동
+     * 게시글 조회
      */
-    @Transactional
-    public Post moveToFolder(Long userId, Long postId, Long folderId) {
-        log.info("=== moveToFolder 시작 ===");
-        log.info("userId: {}, postId: {}, folderId: {}", userId, postId, folderId);
+    public PostResponseDTO getPost(Long userId, Long workspaceId, Long postId) {
+        getMemberOrThrow(userId, workspaceId);
 
-        Post post = postRepository.findByAuthor_UserIdAndPostId(userId, postId)
+        Post post = postRepository.findByPostIdAndWorkspaceWorkspaceId(postId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
-        log.info("Post 조회 완료: {}", post.getPostId());
-
-        if (folderId != null) {
-            Folder folder = folderRepository.findById(folderId)
-                    .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
-
-            if (!folder.getUser().getUserId().equals(userId)) {
-                throw new IllegalArgumentException("해당 폴더에 접근할 수 없습니다.");
-            }
-
-            post.updateFolder(folder);
-            log.info("폴더로 이동 완료: {}", folderId);
-        } else {
-            post.updateFolder(null);
-            log.info("루트로 이동 완료");
-        }
-
-        log.info("=== moveToFolder 종료 ===");
-
-        return post;
-    }
-    /*
-     * 발행 (임시저장 → 발행)
-     */
-
-    /*
-     * 조회수 증가
-     */
-
-
-    /*
-     * 조회 - 내 글 목록 (작성자용)
-     */
-    public Page<PostResponseDTO> getMyPosts(Long userId ,Pageable pageable) {
-        //내가 쓴글 전체 조회
-        Page<Post> posts = postRepository.findByAuthor_UserIdOrderByCreatedAtDesc(userId,pageable);
-        return posts.map(PostResponseDTO::from);
+        return PostResponseDTO.from(post);
     }
 
-    /*
-     * 조회 - 단건 (ID로)
+    /**
+     * 게시글 목록 조회 (워크스페이스 전체)
      */
-    public PostResponseDTO getPostById(Long postId) {
-        Post post = postRepository.findById(postId)
+    public List<PostResponseDTO> getPosts(Long userId, Long workspaceId) {
+        getMemberOrThrow(userId, workspaceId);
+
+        return postRepository.findByWorkspaceWorkspaceId(workspaceId).stream()
+                .map(PostResponseDTO::from)
+                .toList();
+    }
+
+    /**
+     * 폴더별 게시글 목록 조회
+     */
+    public List<PostResponseDTO> getPostsByFolder(Long userId, Long workspaceId, Long folderId) {
+        getMemberOrThrow(userId, workspaceId);
+
+        return postRepository.findByWorkspaceWorkspaceIdAndFolderFolderId(workspaceId, folderId).stream()
+                .map(PostResponseDTO::from)
+                .toList();
+    }
+
+    /**
+     * 게시글 수정
+     */
+    @Transactional
+    public PostResponseDTO updatePost(Long userId, Long workspaceId, Long postId, PostUpdateRequestDTO request) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
+
+        Post post = postRepository.findByPostIdAndWorkspaceWorkspaceId(postId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        return PostResponseDTO.from(post);
-    }
-    /*
-     * 수정
-     */
-    @Transactional
-    public PostResponseDTO updatePost(Long userId, Long postId, PostCreateRequestDTO request) {
-        Post post = postRepository.findByAuthor_UserIdAndPostId(userId, postId)
-                .orElseThrow(()->new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
-        //엔티티 값 변경
-        post.updateTitle(request.getTitle());
-        post.updateContent(request.getContent());
-        log.info("getContent: {},", request.getContent());
+        if (request.getTitle() != null) post.updateTitle(request.getTitle());
+        if (request.getContent() != null) post.updateContent(request.getContent());
+
         return PostResponseDTO.from(post);
-        //트랜잭션 커밋 시점에 dirty checking 변경감지
     }
-    /*
-     * 삭제 (내 글만)
+
+    /**
+     * 게시글 삭제
      */
     @Transactional
-    public void deletePost(Long userId, Long postId) {
-        Post post = postRepository.findByAuthor_UserIdAndPostId(userId,postId)
-                .orElseThrow(()-> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+    public void deletePost(Long userId, Long workspaceId, Long postId) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
+
+        Post post = postRepository.findByPostIdAndWorkspaceWorkspaceId(postId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+
         postRepository.delete(post);
     }
 
+    /**
+     * 게시글 이동 (폴더 변경)
+     */
+    @Transactional
+    public PostResponseDTO movePost(Long userId, Long workspaceId, Long postId, Long newFolderId) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
 
+        Post post = postRepository.findByPostIdAndWorkspaceWorkspaceId(postId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+
+        Folder newFolder = null;
+        if (newFolderId != null) {
+            newFolder = folderRepository.findByFolderIdAndWorkspaceWorkspaceId(newFolderId, workspaceId)
+                    .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
+        }
+
+        post.updateFolder(newFolder);
+        return PostResponseDTO.from(post);
+    }
 }

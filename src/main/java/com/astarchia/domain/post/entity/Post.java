@@ -2,6 +2,7 @@ package com.astarchia.domain.post.entity;
 
 import com.astarchia.domain.folder.entity.Folder;
 import com.astarchia.domain.user.entity.Users;
+import com.astarchia.domain.workspace.entity.Workspace;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -51,6 +52,10 @@ public class Post {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "folder_id")
     private Folder folder;  // 이 게시글이 속한 폴더
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workspace_id", nullable = false)
+    private Workspace workspace;
 
     public void updateTitle(String Title) {
         this.title = Title;

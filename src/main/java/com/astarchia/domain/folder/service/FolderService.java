@@ -5,18 +5,19 @@ import com.astarchia.domain.folder.dto.request.FolderUpdateRequestDTO;
 import com.astarchia.domain.folder.dto.response.FolderResponseDTO;
 import com.astarchia.domain.folder.entity.Folder;
 import com.astarchia.domain.folder.repository.FolderRepository;
-import com.astarchia.domain.post.entity.Post;
 import com.astarchia.domain.user.entity.Users;
 import com.astarchia.domain.user.repository.UserRepository;
+import com.astarchia.domain.workspace.entity.Workspace;
+import com.astarchia.domain.workspace.entity.WorkspaceMember;
+import com.astarchia.domain.workspace.entity.WorkspaceRole;
+import com.astarchia.domain.workspace.repository.WorkspaceMemberRepository;
+import com.astarchia.domain.workspace.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -24,34 +25,54 @@ public class FolderService {
 
     private final FolderRepository folderRepository;
     private final UserRepository userRepository;
+    private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+
+    /**
+     * 워크스페이스 멤버 권한 확인 (공통 헬퍼)
+     */
+    private WorkspaceMember getMemberOrThrow(Long userId, Long workspaceId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("워크스페이스를 찾을 수 없습니다."));
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        return workspaceMemberRepository.findByWorkspaceAndUser(workspace, user)
+                .orElseThrow(() -> new IllegalArgumentException("워크스페이스 접근 권한이 없습니다."));
+    }
+
+    /**
+     * 쓰기 권한 확인 (VIEWER는 불가)
+     */
+    private void checkWritePermission(WorkspaceMember member) {
+        if (member.getRole() == WorkspaceRole.VIEWER) {
+            throw new IllegalArgumentException("쓰기 권한이 없습니다.");
+        }
+    }
 
     /**
      * 폴더 생성
      */
     @Transactional
-    public FolderResponseDTO createFolder(Long userId, FolderCreateRequestDTO request) {
-        // 사용자 조회
-        Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+    public FolderResponseDTO createFolder(Long userId, Long workspaceId, FolderCreateRequestDTO request) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
+
+        Users user = member.getUser();
+        Workspace workspace = member.getWorkspace();
 
         // 부모 폴더 조회 (있으면)
         Folder parent = null;
         if (request.getParentId() != null) {
-            parent = folderRepository.findById(request.getParentId())
+            parent = folderRepository.findByFolderIdAndWorkspaceWorkspaceId(request.getParentId(), workspaceId)
                     .orElseThrow(() -> new IllegalArgumentException("부모 폴더를 찾을 수 없습니다."));
-
-            // 권한 체크 (부모 폴더가 내 폴더인지)
-            if (!parent.getUser().getUserId().equals(userId)) {
-                throw new IllegalArgumentException("해당 폴더에 접근 권한이 없습니다.");
-            }
         }
 
-        // 폴더 생성
         Folder folder = Folder.builder()
                 .user(user)
+                .workspace(workspace)
                 .parent(parent)
                 .name(request.getName())
-                .orderIndex(request.getOrderIndex())
                 .build();
 
         Folder savedFolder = folderRepository.save(folder);
@@ -62,18 +83,14 @@ public class FolderService {
      * 폴더 수정
      */
     @Transactional
-    public FolderResponseDTO updateFolder(Long userId, Long folderId, FolderUpdateRequestDTO request) {
-        // 폴더 조회 및 권한 체크
-        Folder folder = folderRepository.findById(folderId)
+    public FolderResponseDTO updateFolder(Long userId, Long workspaceId, Long folderId, FolderUpdateRequestDTO request) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
+
+        Folder folder = folderRepository.findByFolderIdAndWorkspaceWorkspaceId(folderId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
 
-        if (!folder.getUser().getUserId().equals(userId)) {
-            throw new IllegalArgumentException("해당 폴더를 수정할 권한이 없습니다.");
-        }
-
-        // 폴더명 수정
         folder.updateName(request.getName());
-
         return FolderResponseDTO.from(folder);
     }
 
@@ -81,72 +98,58 @@ public class FolderService {
      * 폴더 삭제
      */
     @Transactional
-    public void deleteFolder(Long userId, Long folderId) {
-        // 폴더 조회 및 권한 체크
-        Folder folder = folderRepository.findById(folderId)
+    public void deleteFolder(Long userId, Long workspaceId, Long folderId) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
+
+        Folder folder = folderRepository.findByFolderIdAndWorkspaceWorkspaceId(folderId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
 
-        if (!folder.getUser().getUserId().equals(userId)) {
-            throw new IllegalArgumentException("해당 폴더를 삭제할 권한이 없습니다.");
-        }
-
-        // 삭제 (cascade로 하위 폴더들도 자동 삭제)
         folderRepository.delete(folder);
     }
 
     /**
-     * 폴더를 다른 폴더로 이동
+     * 폴더 이동
      */
     @Transactional
-    public Folder moveToFolder(Long userId, Long folderId , Long ParentId) {
-        log.info("=== moveToFolder 시작 ===");
-        log.info("userId: {}, folderId: {}", userId, folderId);
-        // 이동시킬 폴더조회
-        Folder folder = folderRepository.findById(folderId)
-                .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
-        // 권한 체크 (이동시킬 폴더가 내 것인지)
-        if(!folder.getUser().getUserId().equals(userId)) {
-            throw new IllegalArgumentException("해당 폴더에 접근할 수 없습니다.");
-        }
+    public FolderResponseDTO moveFolder(Long userId, Long workspaceId, Long folderId, Long newParentId) {
+        WorkspaceMember member = getMemberOrThrow(userId, workspaceId);
+        checkWritePermission(member);
 
-        // 목적지가 루트인지 특정폴더인지
-        if (ParentId != null) {
-            // 목적지 폴더 조회
-            Folder parent = folderRepository.findById(ParentId)
-                    .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
-            // 목적지 폴더 권한 체크
-            if (!parent.getUser().getUserId().equals(userId)) {
-                throw new IllegalArgumentException("목적지 폴더에 접근할 수 없습니다.");
+        Folder folder = folderRepository.findByFolderIdAndWorkspaceWorkspaceId(folderId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
+
+        Folder newParent = null;
+        if (newParentId != null) {
+            newParent = folderRepository.findByFolderIdAndWorkspaceWorkspaceId(newParentId, workspaceId)
+                    .orElseThrow(() -> new IllegalArgumentException("목적지 폴더를 찾을 수 없습니다."));
+
+            // 자기 자신으로 이동 불가
+            if (folder.getFolderId().equals(newParentId)) {
+                throw new IllegalArgumentException("자기 자신으로 이동할 수 없습니다.");
             }
-            if (folder.getFolderId().equals(parent.getFolderId())) {
-                throw new IllegalArgumentException("자기 자신으로는 이동할 수 없습니다.");
-            }
-            // parent가 folder의 하위(자손)인지 체크
-            Folder current = parent.getParent();
+
+            // 하위 폴더로 이동 불가 체크
+            Folder current = newParent.getParent();
             while (current != null) {
                 if (current.getFolderId().equals(folderId)) {
-                    throw new IllegalArgumentException("하위 폴더로는 이동할 수 없습니다.");
+                    throw new IllegalArgumentException("하위 폴더로 이동할 수 없습니다.");
                 }
                 current = current.getParent();
             }
-            folder.moveToParent(parent);
-            log.info("이동 완료: {}", folderId);
-        } else {
-            folder.moveToParent(null);
-            log.info("루트로 이동 완료");
         }
 
-        log.info("=== moveToFolder 종료 ===");
-
-        return folder;
+        folder.moveToParent(newParent);
+        return FolderResponseDTO.from(folder);
     }
-
 
     /**
      * 루트 폴더 목록 조회
      */
-    public List<FolderResponseDTO> getRootFolders(Long userId) {
-        List<Folder> folders = folderRepository.findByUserUserIdAndParentIsNull(userId);
+    public List<FolderResponseDTO> getRootFolders(Long userId, Long workspaceId) {
+        getMemberOrThrow(userId, workspaceId);  // 읽기 권한 확인
+
+        List<Folder> folders = folderRepository.findByWorkspaceWorkspaceIdAndParentIsNull(workspaceId);
         return folders.stream()
                 .map(FolderResponseDTO::from)
                 .toList();
@@ -155,16 +158,13 @@ public class FolderService {
     /**
      * 하위 폴더 목록 조회
      */
-    public List<FolderResponseDTO> getChildFolders(Long userId, Long parentId) {
-        // 부모 폴더 조회 및 권한 체크
-        Folder parent = folderRepository.findById(parentId)
+    public List<FolderResponseDTO> getChildFolders(Long userId, Long workspaceId, Long parentId) {
+        getMemberOrThrow(userId, workspaceId);  // 읽기 권한 확인
+
+        // 부모 폴더가 해당 워크스페이스에 속하는지 확인
+        folderRepository.findByFolderIdAndWorkspaceWorkspaceId(parentId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("폴더를 찾을 수 없습니다."));
 
-        if (!parent.getUser().getUserId().equals(userId)) {
-            throw new IllegalArgumentException("해당 폴더에 접근 권한이 없습니다.");
-        }
-
-        // 하위 폴더 조회
         List<Folder> children = folderRepository.findByParentFolderId(parentId);
         return children.stream()
                 .map(FolderResponseDTO::from)

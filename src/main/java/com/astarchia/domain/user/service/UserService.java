@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -113,5 +116,20 @@ public class UserService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         userRepository.delete(user);
+    }
+
+    /**
+     * 이메일 또는 닉네임으로 사용자 검색
+     */
+    public List<UserResponseDTO> searchUsers(String query, Long currentUserId) {
+        if (!StringUtils.hasText(query)) {
+            return List.of();
+        }
+        
+        return userRepository.findByEmailOrNicknameContaining(query).stream()
+                .filter(user -> !user.getUserId().equals(currentUserId)) // 본인 제외
+                .limit(10) // 최대 10개
+                .map(UserResponseDTO::from)
+                .collect(Collectors.toList());
     }
 }

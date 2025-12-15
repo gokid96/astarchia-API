@@ -3,6 +3,7 @@ package com.astarchia.domain.folder.entity;
 
 import com.astarchia.domain.post.entity.Post;
 import com.astarchia.domain.user.entity.Users;
+import com.astarchia.domain.workspace.entity.Workspace;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -55,11 +56,18 @@ public class Folder {
     @OneToMany(mappedBy = "folder", cascade = CascadeType.ALL)
     private List<Post> posts = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workspace_id", nullable = false)
+    private Workspace workspace;
+
+
+
     @Builder
-    public Folder(Users user, Folder parent, String name, Integer orderIndex) {
+    public Folder(Users user, Folder parent, String name, Integer orderIndex, Workspace workspace) {
         this.user = user;
         this.parent = parent;
         this.name = name;
+        this.workspace = workspace;
     }
 
     /*
